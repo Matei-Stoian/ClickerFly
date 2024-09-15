@@ -43,16 +43,14 @@ const MouseScreen: React.FC = () => {
 
     const handleOnMove = (x: number, y: number) => {
 
-        if (debounceTimer.current) {
-            clearTimeout(debounceTimer.current)
-        }
 
-        debounceTimer.current = setTimeout(() => {
-            const data: MouseEventType = { dx: x, dy: y };
-            const dataJson = JSON.stringify(data);
-            socket?.send(dataJson);
-            console.log("Sent mouse move:", dataJson);
-        },5)
+
+
+        const data: MouseEventType = { dx: x, dy: y };
+        const dataJson = JSON.stringify(data);
+        socket?.send(dataJson);
+        console.log("Sent mouse move:", dataJson);
+
 
     }
 

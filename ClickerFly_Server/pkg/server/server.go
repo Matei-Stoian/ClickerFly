@@ -60,22 +60,14 @@ func handleWebSocketConn(w http.ResponseWriter, r *http.Request) {
 			continue // Skip the rest of the loop for this message if JSON parsing fails
 		}
 		handleMouse(&mouseevent)
-		printMouseEvent(mouseevent)
 	}
 }
 
 func handleMouse(event *MouseEvent) {
 
-	scaledX := event.Dx * 0.5
-	scaledY := event.Dy * 0.5
-
-	// Update current position
-	currentX += scaledX
-	currentY += scaledY
-
 	// Move the mouse to the new position
-	robotgo.MouseSleep = 100
-	robotgo.Move(int(currentX), int(currentY))
+
+	robotgo.MoveRelative(int(event.Dx*0.75), int(event.Dy*0.75))
 
 	// Check if there's a click action
 	if event.ClickType != nil {
@@ -136,6 +128,7 @@ func startWebSocket() {
 
 	fmt.Println(qr.ToSmallString(false))
 	log.Printf("WebSocket server started at http://%s:8080", localIp)
+	log.Println("To close the application press Ctrl+C")
 	if err := http.ListenAndServe(fmt.Sprintf("%s:8080", localIp), nil); err != nil {
 		log.Println("ListenAndServe error:", err)
 	}
