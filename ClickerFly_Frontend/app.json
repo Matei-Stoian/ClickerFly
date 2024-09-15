@@ -1,4 +1,33 @@
 {
-  "name": "ClickerFly_Frontend",
-  "displayName": "ClickerFly_Frontend"
+  "expo": {
+    "name": "ClickerFly_Frontend",
+    "slug": "ClickerFly_Frontend",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "usesCleartextTraffic": true,
+      "package": "com.anonymous.ClickerFly_Frontend"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "scheme": "ClickerFly_Frontend"
+  }
 }

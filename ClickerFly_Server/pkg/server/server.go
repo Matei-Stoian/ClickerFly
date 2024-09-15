@@ -7,9 +7,26 @@ import (
 	"net"
 	"net/http"
 
+	"github.com/go-vgo/robotgo"
 	"github.com/gorilla/websocket"
-	"github.com/grandcat/zeroconf"
+	qrcode "github.com/skip2/go-qrcode"
 )
+
+type ClickType string
+
+var currentX, currentY float64
+
+const (
+	ClickTypeLeft   ClickType = "left"
+	ClickTypeRight  ClickType = "right"
+	ClickTypeMiddle ClickType = "middle"
+)
+
+type MouseEvent struct {
+	Dx        float64    `json:"dx"`
+	Dy        float64    `json:"dy"`
+	ClickType *ClickType `json:"clickType,omitempty"`
+}
 
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
@@ -19,103 +36,112 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-type ClickType string
-
-const (
-	ClickTypeLeft   ClickType = "left"
-	ClickTypeRight  ClickType = "right"
-	ClickTypeMiddle ClickType = "middle"
-)
-
-type MouseEvent struct {
-	Dx        float64    `json: "dx"`
-	Dy        float64    `json: "dy"`
-	ClickType *ClickType `json: "clickType,omitempty"`
-}
-
 func handleWebSocketConn(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
-
 	if err != nil {
-		log.Fatal("Error createing a websocket: ", err.Error())
+		log.Println("Error creating the websocket:", err)
+		return
 	}
-
 	defer conn.Close()
 
-	_, message, err := conn.ReadMessage()
+	log.Println("Client connected")
 
-	if err != nil {
-		log.Fatal("Error reading the message: ", err.Error())
+	for {
+		_, p, err := conn.ReadMessage()
+		if err != nil {
+			log.Println("Error reading message:", err)
+			return // Close the connection if there's an error reading the message
+		}
+
+		var mouseevent MouseEvent
+		err = json.Unmarshal(p, &mouseevent)
+		if err != nil {
+			log.Println("Error parsing json:", err)
+			continue // Skip the rest of the loop for this message if JSON parsing fails
+		}
+		handleMouse(&mouseevent)
+		printMouseEvent(mouseevent)
 	}
-	var messageMouse MouseEvent
-	err = json.Unmarshal(message, &messageMouse)
+}
 
-	if err != nil {
-		log.Fatal("Error parsing the json: ", err.Error())
+func handleMouse(event *MouseEvent) {
+
+	scaledX := event.Dx * 0.5
+	scaledY := event.Dy * 0.5
+
+	// Update current position
+	currentX += scaledX
+	currentY += scaledY
+
+	// Move the mouse to the new position
+	robotgo.MouseSleep = 100
+	robotgo.Move(int(currentX), int(currentY))
+
+	// Check if there's a click action
+	if event.ClickType != nil {
+		switch *event.ClickType {
+		case ClickTypeLeft:
+			robotgo.Click("left")
+		case ClickTypeRight:
+			robotgo.Click("right")
+		case ClickTypeMiddle:
+			robotgo.Click("middle")
+		}
 	}
-
-	log.Println(messageMouse)
 
 }
 
-func getPreferredIP() (string, error) {
-
-	addrs, err := net.InterfaceAddrs()
-	if err != nil {
-		return "", err
+func printMouseEvent(event MouseEvent) {
+	clickTypeStr := "nil"
+	if event.ClickType != nil {
+		clickTypeStr = string(*event.ClickType)
 	}
-	for _, addr := range addrs {
-
-		ipNet, ok := addr.(*net.IPNet)
-		if !ok || ipNet.IP.IsLoopback() {
-
-			continue
-		}
-
-		ip := ipNet.IP.To4()
-		if ip == nil {
-			continue
-		}
-
-		return ip.String(), nil
-	}
-	return "", fmt.Errorf("no valid IP address found")
+	fmt.Printf("Received: { Dx: %.2f, Dy: %.2f, ClickType: %s }\n", event.Dx, event.Dy, clickTypeStr)
 }
 
-func advertiseService() {
-	server, err := zeroconf.Register(
-		"ClickerFly",
-		"_http._tcp",
-		"local.",
-		8080,
-		[]string{"txt=ClickerFly"},
-		nil,
-	)
+func getPreferredIP() string {
+	conn, err := net.Dial("udp", "8.8.8.8:80")
 	if err != nil {
-		log.Fatal("Error advertising the service: ", err.Error())
+		log.Fatal(err)
 	}
-	log.Println("The service is now visible")
+	defer conn.Close()
 
-	defer server.Shutdown()
-	select {}
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
+	return localAddr.IP.String()
+}
+
+func printQRCodeInTerminal(qr *qrcode.QRCode) {
+	size := qr.Bitmap()
+
+	for y := 0; y < len(size); y += 2 { // Increase step to shrink height
+		for x := 0; x < len(size[y]); x++ {
+			if size[y][x] {
+				fmt.Print("█")
+			} else {
+				fmt.Print(" ")
+			}
+		}
+		fmt.Println()
+	}
 }
 
 func startWebSocket() {
-
 	http.HandleFunc("/ws", handleWebSocketConn)
 
-	localIp, err := getPreferredIP()
-
+	localIp := getPreferredIP()
+	qr, err := qrcode.New(localIp, qrcode.Medium)
 	if err != nil {
-		log.Fatal("Error getting the ip address: ", err.Error())
+		log.Fatal("Error creating a QR code:", err)
 	}
 
-	log.Printf("WebSocket server started at %s:8080", localIp)
-	log.Fatal(http.ListenAndServe(fmt.Sprintf("%s:8080", localIp), nil))
-
+	fmt.Println(qr.ToSmallString(false))
+	log.Printf("WebSocket server started at http://%s:8080", localIp)
+	if err := http.ListenAndServe(fmt.Sprintf("%s:8080", localIp), nil); err != nil {
+		log.Println("ListenAndServe error:", err)
+	}
 }
 
 func StartServer() {
 	go startWebSocket()
-	advertiseService()
+	select {} // Keep the main function running
 }
