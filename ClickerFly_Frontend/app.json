@@ -12,7 +12,8 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "."
     },
     "android": {
       "adaptiveIcon": {
@@ -28,6 +29,11 @@
     "plugins": [
       "expo-router"
     ],
-    "scheme": "ClickerFly_Frontend"
+    "scheme": "ClickerFly_Frontend",
+    "extra": {
+      "eas": {
+        "projectId": "bcf8f245-24a7-41f6-9d6b-b892005081da"
+      }
+    }
   }
 }
