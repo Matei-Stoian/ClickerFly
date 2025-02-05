@@ -16,7 +16,6 @@ const MouseScreen: React.FC = () => {
     console.log(address);
 
     useFocusEffect(useCallback(() => {
-
         const ws = new WebSocket(address);
 
         ws.onopen = () => {
@@ -25,32 +24,25 @@ const MouseScreen: React.FC = () => {
         };
         ws.onerror = e => {
             console.log(e.message);
-        }
-        ws.onclose = (e) => {
-            // connection closed
-            console.log(e.code, e.reason);
-            console.log('WebSocket cloesed');
-            ToastAndroid.show('WebSocket cloesed', ToastAndroid.SHORT)
         };
+        ws.onclose = (e) => {
+            console.log(e.code, e.reason);
+            console.log('WebSocket closed');
+            ToastAndroid.show('WebSocket closed', ToastAndroid.SHORT);
+        };
+
         setSocket(ws);
+
         return () => {
-            router.replace('/')
-            ws.close()
-        }
-
-    }, []));
-
+            ws.close();
+        };
+    }, [address, router]));
 
     const handleOnMove = (x: number, y: number) => {
-
-
-
-
         const data: MouseEventType = { dx: x, dy: y };
         const dataJson = JSON.stringify(data);
         socket?.send(dataJson);
         console.log("Sent mouse move:", dataJson);
-
 
     }
 

@@ -46,41 +46,52 @@ func handleWebSocketConn(w http.ResponseWriter, r *http.Request) {
 
 	log.Println("Client connected")
 
+	// Accumulators for smooth movement
+	var accumX, accumY float64
+	const sensitivity = 0.15 // Adjust this value to control mouse speed
+
 	for {
 		_, p, err := conn.ReadMessage()
 		if err != nil {
 			log.Println("Error reading message:", err)
-			return // Close the connection if there's an error reading the message
+			return
 		}
 
-		var mouseevent MouseEvent
-		err = json.Unmarshal(p, &mouseevent)
-		if err != nil {
+		var mouseEvent MouseEvent
+		if err := json.Unmarshal(p, &mouseEvent); err != nil {
 			log.Println("Error parsing json:", err)
-			continue // Skip the rest of the loop for this message if JSON parsing fails
+			continue
 		}
-		handleMouse(&mouseevent)
-	}
-}
 
-func handleMouse(event *MouseEvent) {
+		// Accumulate deltas with sensitivity adjustment
+		accumX += mouseEvent.Dx * sensitivity
+		accumY += mouseEvent.Dy * sensitivity
 
-	// Move the mouse to the new position
+		// Convert accumulated values to integer movement
+		dx := int(accumX)
+		dy := int(accumY)
 
-	robotgo.MoveRelative(int(event.Dx*0.75), int(event.Dy*0.75))
+		// Only move if we have at least 1 pixel to move
+		if dx != 0 || dy != 0 {
+			robotgo.MoveRelative(dx, dy)
 
-	// Check if there's a click action
-	if event.ClickType != nil {
-		switch *event.ClickType {
-		case ClickTypeLeft:
-			robotgo.Click("left")
-		case ClickTypeRight:
-			robotgo.Click("right")
-		case ClickTypeMiddle:
-			robotgo.Click("middle")
+			// Preserve fractional movement for next update
+			accumX -= float64(dx)
+			accumY -= float64(dy)
+		}
+
+		// Handle click events
+		if mouseEvent.ClickType != nil {
+			switch *mouseEvent.ClickType {
+			case ClickTypeLeft:
+				robotgo.Click("left")
+			case ClickTypeRight:
+				robotgo.Click("right")
+			case ClickTypeMiddle:
+				robotgo.Click("middle")
+			}
 		}
 	}
-
 }
 
 func printMouseEvent(event MouseEvent) {
@@ -118,6 +129,9 @@ func printQRCodeInTerminal(qr *qrcode.QRCode) {
 }
 
 func startWebSocket() {
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("WebSocket server running. Connect to ws://" + getPreferredIP() + ":8080/ws"))
+	})
 	http.HandleFunc("/ws", handleWebSocketConn)
 
 	localIp := getPreferredIP()
@@ -127,7 +141,7 @@ func startWebSocket() {
 	}
 
 	fmt.Println(qr.ToSmallString(false))
-	log.Printf("WebSocket server started at http://%s:8080", localIp)
+	log.Printf("WebSocket server started at ws://%s:8080", localIp)
 	log.Println("To close the application press Ctrl+C")
 	if err := http.ListenAndServe(fmt.Sprintf("%s:8080", localIp), nil); err != nil {
 		log.Println("ListenAndServe error:", err)
