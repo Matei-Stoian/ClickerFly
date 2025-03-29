@@ -10,3 +10,6 @@ Things I might implement in the future:
 - [ ] device discovery system (maybe mDNS or something)
 - [ ] a list of most used devices for ease of use
 - [ ] improve UI
+
+This is the first version of the app, the next one will no longer use React Native
+
